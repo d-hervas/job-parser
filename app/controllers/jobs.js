@@ -1,7 +1,9 @@
-/* eslint-disable quotes */
 'use strict';
 
+// TODO probably could use more descriptive error msg/logging but w/e
+
 const fetch = require('node-fetch');
+const sendMail = require('../utils/mail');
 
 const newJobMatchesCriteria = ({ title, city }, { keywords, cities }) => {
   const includesKeyword = keywords.some(word => title.includes(word));
@@ -9,39 +11,52 @@ const newJobMatchesCriteria = ({ title, city }, { keywords, cities }) => {
   return includesKeyword || includesCity;
 };
 
-const sendEmail = (users) => console.log(users);
+// TODO move this to .env vars
+const GQL_URL = 'http://localhost:8080/v1/graphql';
+const getFetchPayload = body => ({
+  'headers': {
+    'accept': '*/*',
+    'accept-language': 'en-US,en;q=0.9',
+    'content-type': 'application/json',
+  },
+  body,
+  'method': 'POST',
+});
 
 exports.newJob = async (ctx) => {
-  // TODO move this to an env variable
-  // TODO potentially use a gQL client
-  const getJobResponse = await fetch('http://localhost:8080/v1/graphql', {
-    'headers': {
-      'accept': '*/*',
-      'accept-language': 'en-US,en;q=0.9',
-      'content-type': 'application/json',
-    },
-    "body": "{\"query\":\"query MyQuery {\\n  jobs(limit: 1) {\\n    id\\n    title\\n    company_id\\n    city\\n  }\\n}\\n\",\"variables\":null,\"operationName\":\"MyQuery\"}",
-    'method': 'POST',
-  }).then(res => res.json());
+  // TODO Use a gQL client or at least build the body "objects" as objects and not pasting stringified JSON
+  const newJobQuery = '{"query":"query MyQuery {\\n  jobs(limit: 1) {\\n    id\\n    title\\n    company_id\\n    city\\n  }\\n}\\n","variables":null,"operationName":"MyQuery"}';
+  const jobAlertsQuery = '{"query":"query MyQuery {\\n  job_alerts {\\n    id\\n    email\\n    cities\\n    keywords\\n  }\\n}\\n","variables":null,"operationName":"MyQuery"}';
 
-  const jobAlertsResponse = await fetch('http://localhost:8080/v1/graphql', {
-    'headers': {
-      'accept': '*/*',
-      'accept-language': 'en-US,en;q=0.9',
-    },
-    'referrer': 'http://localhost:8080/console/api-explorer',
-    'referrerPolicy': 'strict-origin-when-cross-origin',
-    'body': '{"query":"query MyQuery {\\n  job_alerts {\\n    id\\n    email\\n    cities\\n    keywords\\n  }\\n}\\n","variables":null,"operationName":"MyQuery"}',
-    'method': 'POST',
-  }).then(res => res.json());
+  const newJobResponse = await fetch(GQL_URL, getFetchPayload(newJobQuery))
+    .then(res => res.json())
+    .catch(() => ctx.throw(500, 'Error requesting latest job from database'));
+  if (!newJobResponse) {
+    ctx.throw(400, 'Job not found');
+  }
+  const latestJob = newJobResponse.data.jobs[0];
 
-  const { job_alerts } = jobAlertsResponse.data;
+  // TODO a better way to do this is probably to load it in-memory on startup and then set up a trigger
+  // to update, just like this newJob function works. Requesting the job_alerts table could get *slow*
+  const jobAlertsResponse = await fetch(GQL_URL, getFetchPayload(jobAlertsQuery))
+    .then(res => res.json())
+    .catch(() => ctx.throw(500, 'Error requesting job alerts'));
+  if (!jobAlertsResponse) {
+    ctx.throw(400, 'Job collection not found');
+  }
+  const jobAlerts = jobAlertsResponse.data.jobs;
 
-  const { jobs } = getJobResponse.data;
+  let usersToEmail = [];
+  try {
+    usersToEmail = jobAlerts.filter(user => newJobMatchesCriteria(latestJob, user));
+  } catch (err) {
+    ctx.throw(500, 'Error when parsing which users to notify');
+  }
 
-  const usersToEmail = job_alerts.filter(user => newJobMatchesCriteria(jobs[0], user));
+  const mailResponse = await sendMail(usersToEmail, latestJob.title).catch(() =>
+    ctx.throw(500, 'Error when sending email')
+  );
 
-  sendEmail(usersToEmail);
-
-  ctx.body = usersToEmail;
+  // eslint-disable-next-line require-atomic-updates
+  ctx.body = mailResponse;
 };
