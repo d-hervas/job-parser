@@ -5,6 +5,7 @@
 const fetch = require('node-fetch');
 const sendMail = require('../utils/mail');
 
+// Probably a good fn to test
 const newJobMatchesCriteria = ({ title, city }, { keywords, cities }) => {
   const includesKeyword = keywords.some(word => title.includes(word));
   const includesCity = cities.find(jobCity => city === jobCity);
@@ -23,6 +24,14 @@ const getFetchPayload = body => ({
   'method': 'POST',
 });
 
+
+/**
+ * @swagger
+ * /spec:
+ *   post:
+ *     summary: Post new job to database
+ *     operationId: postNewJob
+ */
 exports.newJob = async (ctx) => {
   // TODO Use a gQL client or at least build the body "objects" as objects and not pasting stringified JSON
   const newJobQuery = '{"query":"query MyQuery {\\n  jobs(limit: 1) {\\n    id\\n    title\\n    company_id\\n    city\\n  }\\n}\\n","variables":null,"operationName":"MyQuery"}';
