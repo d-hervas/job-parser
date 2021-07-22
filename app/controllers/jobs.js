@@ -4,13 +4,7 @@
 
 const fetch = require('node-fetch');
 const sendMail = require('../utils/mail');
-
-// Probably a good fn to test
-const newJobMatchesCriteria = ({ title, city }, { keywords, cities }) => {
-  const includesKeyword = keywords.some(word => title.includes(word));
-  const includesCity = cities.find(jobCity => city === jobCity);
-  return includesKeyword || includesCity;
-};
+const newJobMatchesCriteria = require('../utils/jobs');
 
 // TODO move this to .env vars
 const GQL_URL = 'http://localhost:8080/v1/graphql';
