@@ -4,7 +4,7 @@
 
 const fetch = require('node-fetch');
 const sendMail = require('../utils/mail');
-const newJobMatchesCriteria = require('../utils/jobs');
+const { newJobMatchesCriteria } = require('../utils/jobs');
 
 // TODO move this to .env vars
 const GQL_URL = 'http://localhost:8080/v1/graphql';

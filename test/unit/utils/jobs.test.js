@@ -1,4 +1,4 @@
-const newJobMatchesCriteria = require('../../../app/utils/jobs');
+const { newJobMatchesCriteria } = require('../../../app/utils/jobs');
 
 describe('Job matches criteria', () => {
   it('Should return a true value', () => {

@@ -1,4 +1,4 @@
-const sendEmail = require('../../../app/utils/response');
+const sendEmail = require('../../../app/utils/mail');
 
 describe('Email send success', () => {
   it('should send the email with the provided account and subject', async () => {
